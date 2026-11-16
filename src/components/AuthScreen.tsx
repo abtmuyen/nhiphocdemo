@@ -46,7 +46,7 @@ const ROLE_CARDS: Array<{
   {
     role: 'parent',
     title: 'Phụ huynh',
-    subtitle: 'Giao diện tối dịu mắt, theo dõi an tâm',
+    subtitle: 'Giấy note dịu mắt, theo dõi an tâm',
     features: [
       'Tổng quan tỷ lệ hoàn thành, phút tập trung & ảnh bài của con',
       'Đặt lịch học / check-in và theo dõi xác nhận theo thời gian thực',
@@ -388,39 +388,39 @@ export function AuthScreen() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
               {/* Block 02: Parent Dark Mode */}
-              <div className="lg:col-span-6 rounded-3xl border border-[#3A3227] bg-[#181511] text-[#F7F2E7] p-7 sm:p-9 flex flex-col justify-between space-y-6">
+              <div className="lg:col-span-6 rounded-3xl border border-[#3A3227] bg-[#c45a15] text-[#F7F2E7] p-7 sm:p-9 flex flex-col justify-between space-y-6">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2.5 text-xs font-bold text-[#E6B87D]">
                     <span>02. Không gian Phụ huynh</span>
                     <span aria-hidden="true">·</span>
-                    <span className="text-[#C8BCAA]">Giao diện tối dịu mắt</span>
+                    <span className="text-[#FDF3D0]">Giấy note sáng ấm</span>
                   </div>
                   <h3 className="text-2xl font-extrabold text-white">
                     Nắm bắt tiến độ của con và đồng hành cùng Trợ lý
                   </h3>
-                  <p className="text-sm text-[#C8BCAA] leading-relaxed">
-                    Giao diện tối ấm giúp phụ huynh kiểm tra bài tập buổi tối thoải mái. Xem tỷ lệ
-                    hoàn thành, thời gian tập trung, ảnh bài làm của con, đặt lịch hẹn check-in và
-                    gửi phiếu phản hồi trực tiếp.
+                  <p className="text-sm text-[#FDF3D0] leading-relaxed">
+                    Giao diện giấy note sáng ấm đồng bộ giúp phụ huynh theo dõi bài tập cùng con
+                    thoải mái. Xem tỷ lệ hoàn thành, thời gian tập trung, ảnh bài làm của con, đặt
+                    lịch hẹn check-in và gửi phiếu phản hồi trực tiếp.
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-[#3A3227] bg-[#221D17] p-5 space-y-4">
+                <div className="rounded-2xl border border-[#3A3227] bg-[#ffffff] font-bold p-5 space-y-4">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#C8BCAA]">Tổng quan hôm nay</span>
+                    <span className="text-[#ff9b00]">Tổng quan hôm nay</span>
                     <span className="font-mono-code font-bold text-[#E6B87D] tabular-nums">
                       Chuỗi 7 ngày · 95 phút
                     </span>
                   </div>
                   <div className="flex items-start gap-3">
                     <Star className="w-4 h-4 text-[#C45A15] shrink-0 mt-0.5 animate-star-twinkle" />
-                    <p className="text-xs text-[#F7F2E7] leading-relaxed">
+                    <p className="text-xs text-[#000000] leading-relaxed">
                       Con đã hoàn thành bài Toán & Tiếng Anh, Cây Tập Trung đạt cấp 4.
                     </p>
                   </div>
                   <div className="pt-3 border-t border-[#3A3227] flex items-start gap-3">
                     <Lightbulb className="w-4 h-4 text-[#E6B87D] shrink-0 mt-0.5 animate-glow-pulse" />
-                    <p className="text-xs text-[#C8BCAA] leading-relaxed">
+                    <p className="text-xs text-[#000000] leading-relaxed">
                       Đặt lịch check-in 15 phút hoặc nhắn tin trực tiếp với Trợ lý bất cứ lúc nào.
                     </p>
                   </div>
@@ -563,26 +563,12 @@ export function AuthScreen() {
               </div>
 
               <div className="lg:col-span-6 space-y-5">
-                <div
-                  className={`rounded-2xl border p-6 space-y-4 transition-colors ${
-                    selectedRole === 'parent'
-                      ? 'bg-[#181511] border-[#3A3227] text-[#F7F2E7]'
-                      : 'bg-white border-[#E5DBC4] text-[#231E18]'
-                  }`}
-                >
+                <div className="rounded-2xl border border-[#E5DBC4] text-[#231E18] p-6 space-y-4 transition-colors bg-[#ffffff]">
                   <div className="flex items-center justify-between gap-2">
-                    <p
-                      className={`text-xs font-bold ${
-                        selectedRole === 'parent' ? 'text-[#E6B87D]' : 'text-[#C45A15]'
-                      }`}
-                    >
+                    <p className="text-xs font-bold text-[#C45A15]">
                       Không gian {activeRoleCard.title}
                     </p>
-                    <span
-                      className={`text-xs ${
-                        selectedRole === 'parent' ? 'text-[#C8BCAA]' : 'text-[#6B6154]'
-                      }`}
-                    >
+                    <span className="text-xs text-[#6B6154]">
                       {activeRoleCard.subtitle}
                     </span>
                   </div>
@@ -590,7 +576,7 @@ export function AuthScreen() {
                     {activeRoleCard.features.map((feat) => (
                       <li key={feat} className="flex items-start gap-2.5 text-xs leading-relaxed">
                         <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-[#C45A15]" />
-                        <span>{feat}</span>
+                        <span className="text-[#000000]">{feat}</span>
                       </li>
                     ))}
                   </ul>
@@ -662,7 +648,7 @@ export function AuthScreen() {
                 </li>
                 <li className="flex items-center gap-2">
                   <HeartHandshake className="w-3.5 h-3.5 text-[#C45A15]" />
-                  <span>Phụ huynh: Giao diện tối · Tiến độ con · Lịch hẹn</span>
+                  <span>Phụ huynh: Tiến độ con · Cây xanh · Lịch hẹn</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Users className="w-3.5 h-3.5 text-[#C45A15]" />

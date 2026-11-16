@@ -32,6 +32,7 @@ interface AccountModalProps {
   soundOn: boolean;
   onToggleSound: () => void;
   initialSection?: 'default' | 'delete';
+  dark?: boolean;
 }
 
 const ROLE_TEXT = {
@@ -51,6 +52,7 @@ export function AccountModal({
   soundOn,
   onToggleSound,
   initialSection = 'default',
+  dark = false,
 }: AccountModalProps) {
   const [copiedCode, setCopiedCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -158,7 +160,7 @@ export function AccountModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+      className={`fixed inset-0 z-50 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto ${dark ? 'dark' : ''}`}
       role="dialog"
       aria-modal="true"
       aria-label="Hồ sơ và kết nối"

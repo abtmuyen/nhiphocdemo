@@ -471,20 +471,18 @@ export default function App() {
         />
       )}
 
-      <div className={userPublic.role === 'parent' ? 'dark' : ''}>
-        <AccountModal
-          open={accountOpen}
-          onClose={() => setAccountOpen(false)}
-          user={firebaseUser}
-          userPublic={userPublic}
-          userPrivate={userPrivate}
-          students={students}
-          activeStudent={activeStudent}
-          soundOn={soundOn}
-          onToggleSound={handleToggleSound}
-          initialSection={accountInitialSection}
-        />
-      </div>
+      <AccountModal
+        open={accountOpen}
+        onClose={() => setAccountOpen(false)}
+        user={firebaseUser}
+        userPublic={userPublic}
+        userPrivate={userPrivate}
+        students={students}
+        activeStudent={activeStudent}
+        soundOn={soundOn}
+        onToggleSound={handleToggleSound}
+        initialSection={accountInitialSection}
+      />
     </>
   );
 }
