@@ -1,0 +1,215 @@
+{
+  "entities": {
+    "UserPublic": {
+      "title": "UserPublic",
+      "description": "Public profile metadata for a user without PII",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "role": { "type": "string", "enum": ["student", "parent", "assistant"] },
+        "photoURL": { "type": "string", "maxLength": 1000 },
+        "isOnline": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "role", "photoURL", "isOnline", "createdAt", "updatedAt"]
+    },
+    "UserPrivate": {
+      "title": "UserPrivate",
+      "description": "Private PII for a user, readable only by the owner",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 200 },
+        "phone": { "type": "string", "minLength": 6, "maxLength": 20 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "phone", "createdAt", "updatedAt"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Shared student workspace connecting up to 1 student, 1 parent, and 1 assistant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "grade": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "inviteCode": { "type": "string", "minLength": 6, "maxLength": 12, "pattern": "^NH[A-Z0-9]{4,10}$" },
+        "studentUid": { "type": "string", "maxLength": 128 },
+        "parentUid": { "type": "string", "maxLength": 128 },
+        "assistantUid": { "type": "string", "maxLength": 128 },
+        "createdByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "totalFocusMinutes": { "type": "integer" },
+        "streakDays": { "type": "integer" },
+        "lastFocusDate": { "type": "string", "maxLength": 20 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "grade", "inviteCode", "studentUid", "parentUid", "assistantUid", "createdByUid", "totalFocusMinutes", "streakDays", "lastFocusDate", "createdAt", "updatedAt"]
+    },
+    "StudentInvite": {
+      "title": "StudentInvite",
+      "description": "Invite code lookup document keyed by NH code",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "minLength": 6, "maxLength": 12, "pattern": "^NH[A-Z0-9]{4,10}$" },
+        "studentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "grade": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "createdByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "studentId", "studentName", "grade", "createdByUid", "createdAt", "updatedAt"]
+    },
+    "Assignment": {
+      "title": "Assignment",
+      "description": "Homework assignment for a student with submission image and grading lifecycle",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentUid": { "type": "string", "maxLength": 128 },
+        "parentUid": { "type": "string", "maxLength": 128 },
+        "assistantUid": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["today", "extra"] },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "dueDate": { "type": "string", "maxLength": 40 },
+        "status": { "type": "string", "enum": ["pending", "submitted", "graded"] },
+        "submissionImageDataUrl": { "type": "string", "maxLength": 260000 },
+        "studentNote": { "type": "string", "maxLength": 1000 },
+        "assistantFeedback": { "type": "string", "maxLength": 1500 },
+        "gradeText": { "type": "string", "maxLength": 40 },
+        "createdByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "gradedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "studentId", "studentUid", "parentUid", "assistantUid", "type", "subject", "title", "description", "dueDate", "status", "submissionImageDataUrl", "studentNote", "assistantFeedback", "gradeText", "createdByUid", "submittedAt", "gradedAt", "createdAt", "updatedAt"]
+    },
+    "FocusSession": {
+      "title": "FocusSession",
+      "description": "Completed Pomodoro focus session that grows the Focus Tree",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentUid": { "type": "string", "maxLength": 128 },
+        "parentUid": { "type": "string", "maxLength": 128 },
+        "assistantUid": { "type": "string", "maxLength": 128 },
+        "durationMinutes": { "type": "integer" },
+        "note": { "type": "string", "maxLength": 300 },
+        "completedDate": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "createdByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "studentId", "studentUid", "parentUid", "assistantUid", "durationMinutes", "note", "completedDate", "createdByUid", "createdAt", "updatedAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Real-time chat message scoped to a student workspace",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentUid": { "type": "string", "maxLength": 128 },
+        "parentUid": { "type": "string", "maxLength": 128 },
+        "assistantUid": { "type": "string", "maxLength": 128 },
+        "senderUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "senderName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "senderRole": { "type": "string", "enum": ["student", "parent", "assistant"] },
+        "text": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "readByUids": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "studentId", "studentUid", "parentUid", "assistantUid", "senderUid", "senderName", "senderRole", "text", "readByUids", "createdAt", "updatedAt"]
+    },
+    "Schedule": {
+      "title": "Schedule",
+      "description": "Study or check-in schedule requested by parent and confirmed by assistant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentUid": { "type": "string", "maxLength": 128 },
+        "parentUid": { "type": "string", "maxLength": 128 },
+        "assistantUid": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "scheduledAt": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "note": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["requested", "confirmed", "completed", "cancelled"] },
+        "createdByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "studentId", "studentUid", "parentUid", "assistantUid", "title", "scheduledAt", "note", "status", "createdByUid", "createdAt", "updatedAt"]
+    },
+    "FeedbackTicket": {
+      "title": "FeedbackTicket",
+      "description": "Parent feedback, support, or management ticket answered by assistant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentUid": { "type": "string", "maxLength": 128 },
+        "parentUid": { "type": "string", "maxLength": 128 },
+        "assistantUid": { "type": "string", "maxLength": 128 },
+        "category": { "type": "string", "enum": ["feedback", "support", "management"] },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "content": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "status": { "type": "string", "enum": ["open", "resolved"] },
+        "response": { "type": "string", "maxLength": 2000 },
+        "respondedByUid": { "type": "string", "maxLength": 128 },
+        "createdByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "studentId", "studentUid", "parentUid", "assistantUid", "category", "subject", "content", "status", "response", "respondedByUid", "createdByUid", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users_public/{userId}": {
+      "schema": { "$ref": "#/entities/UserPublic" },
+      "description": "Public profile metadata for users"
+    },
+    "/users_private/{userId}": {
+      "schema": { "$ref": "#/entities/UserPrivate" },
+      "description": "Private PII (email, phone) accessible only to owner"
+    },
+    "/students/{studentId}": {
+      "schema": { "$ref": "#/entities/Student" },
+      "description": "Shared student workspace connecting up to 1 student, 1 parent, and 1 assistant"
+    },
+    "/student_invites/{inviteCode}": {
+      "schema": { "$ref": "#/entities/StudentInvite" },
+      "description": "Invite code documents keyed by NH code for direct lookup"
+    },
+    "/assignments/{assignmentId}": {
+      "schema": { "$ref": "#/entities/Assignment" },
+      "description": "Student assignments (today / extra) with submission image and grading"
+    },
+    "/focus_sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/FocusSession" },
+      "description": "Completed Pomodoro focus sessions"
+    },
+    "/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/Message" },
+      "description": "Real-time messages within a student workspace"
+    },
+    "/schedules/{scheduleId}": {
+      "schema": { "$ref": "#/entities/Schedule" },
+      "description": "Study and check-in schedules"
+    },
+    "/feedback_tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/FeedbackTicket" },
+      "description": "Parent feedback/support/management tickets"
+    }
+  }
+}

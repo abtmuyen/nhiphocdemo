@@ -1,0 +1,586 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidInviteCode(code) {
+      return code is string && code.size() >= 6 && code.size() <= 12 && code.matches('^NH[A-Z0-9]{4,10}$');
+    }
+
+    function isNullableUid(val) {
+      return val == null || isValidId(val);
+    }
+
+    function hasStudentRoleData(studentData) {
+      return studentData.studentUid == request.auth.uid
+        || studentData.parentUid == request.auth.uid
+        || studentData.assistantUid == request.auth.uid;
+    }
+
+    function studentExists(studentId) {
+      return exists(/databases/$(database)/documents/students/$(studentId));
+    }
+
+    function getStudentData(studentId) {
+      return get(/databases/$(database)/documents/students/$(studentId)).data;
+    }
+
+    function isMemberOfStudent(studentId) {
+      return studentExists(studentId) && hasStudentRoleData(getStudentData(studentId));
+    }
+
+    function isAssistantOfStudent(studentId) {
+      return studentExists(studentId) && getStudentData(studentId).assistantUid == request.auth.uid;
+    }
+
+    function isParentOfStudent(studentId) {
+      return studentExists(studentId) && getStudentData(studentId).parentUid == request.auth.uid;
+    }
+
+    function isStudentOfStudent(studentId) {
+      return studentExists(studentId) && getStudentData(studentId).studentUid == request.auth.uid;
+    }
+
+    function isSoleMemberOfStudent(studentId) {
+      return studentExists(studentId) && (
+        (getStudentData(studentId).studentUid == request.auth.uid && getStudentData(studentId).parentUid == null && getStudentData(studentId).assistantUid == null) ||
+        (getStudentData(studentId).parentUid == request.auth.uid && getStudentData(studentId).studentUid == null && getStudentData(studentId).assistantUid == null) ||
+        (getStudentData(studentId).assistantUid == request.auth.uid && getStudentData(studentId).studentUid == null && getStudentData(studentId).parentUid == null)
+      );
+    }
+
+    function matchesStudentUids(data, studentId) {
+      return studentExists(studentId)
+        && data.studentUid == getStudentData(studentId).studentUid
+        && data.parentUid == getStudentData(studentId).parentUid
+        && data.assistantUid == getStudentData(studentId).assistantUid;
+    }
+
+    function isRemovingSelfUid() {
+      return (existing().studentUid == request.auth.uid && incoming().studentUid == null && incoming().diff(existing()).affectedKeys().hasOnly(['studentUid', 'updatedAt']))
+        || (existing().parentUid == request.auth.uid && incoming().parentUid == null && incoming().diff(existing()).affectedKeys().hasOnly(['parentUid', 'updatedAt']))
+        || (existing().assistantUid == request.auth.uid && incoming().assistantUid == null && incoming().diff(existing()).affectedKeys().hasOnly(['assistantUid', 'updatedAt']));
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users_public/$(request.auth.uid)).data.role;
+    }
+
+    // Validation helpers
+    function isValidUserPublic(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'role', 'photoURL', 'isOnline', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'role', 'photoURL', 'isOnline', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.role in ['student', 'parent', 'assistant']
+        && data.photoURL is string && data.photoURL.size() <= 1000
+        && data.isOnline is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivate(data) {
+      return data.keys().hasAll(['uid', 'email', 'phone', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'phone', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() <= 200
+        && data.phone is string && data.phone.size() >= 6 && data.phone.size() <= 20
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStudent(data) {
+      return data.keys().hasAll([
+          'id', 'name', 'grade', 'inviteCode', 'studentUid', 'parentUid',
+          'assistantUid', 'createdByUid', 'totalFocusMinutes', 'streakDays',
+          'lastFocusDate', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'grade', 'inviteCode', 'studentUid', 'parentUid',
+          'assistantUid', 'createdByUid', 'totalFocusMinutes', 'streakDays',
+          'lastFocusDate', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.grade is string && data.grade.size() >= 1 && data.grade.size() <= 40
+        && isValidInviteCode(data.inviteCode)
+        && isNullableUid(data.studentUid)
+        && isNullableUid(data.parentUid)
+        && isNullableUid(data.assistantUid)
+        && isValidId(data.createdByUid)
+        && data.totalFocusMinutes is int && data.totalFocusMinutes >= 0 && data.totalFocusMinutes <= 1000000
+        && data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 10000
+        && data.lastFocusDate is string && data.lastFocusDate.size() <= 20
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStudentInvite(data) {
+      return data.keys().hasAll(['code', 'studentId', 'studentName', 'grade', 'createdByUid', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['code', 'studentId', 'studentName', 'grade', 'createdByUid', 'createdAt', 'updatedAt'])
+        && isValidInviteCode(data.code)
+        && isValidId(data.studentId)
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 80
+        && data.grade is string && data.grade.size() >= 1 && data.grade.size() <= 40
+        && isValidId(data.createdByUid)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAssignment(data) {
+      return data.keys().hasAll([
+          'id', 'studentId', 'studentUid', 'parentUid', 'assistantUid',
+          'type', 'subject', 'title', 'description', 'dueDate', 'status',
+          'submissionImageDataUrl', 'studentNote', 'assistantFeedback',
+          'gradeText', 'createdByUid', 'submittedAt', 'gradedAt',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'studentId', 'studentUid', 'parentUid', 'assistantUid',
+          'type', 'subject', 'title', 'description', 'dueDate', 'status',
+          'submissionImageDataUrl', 'studentNote', 'assistantFeedback',
+          'gradeText', 'createdByUid', 'submittedAt', 'gradedAt',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.studentId)
+        && isNullableUid(data.studentUid)
+        && isNullableUid(data.parentUid)
+        && isNullableUid(data.assistantUid)
+        && data.type in ['today', 'extra']
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 60
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 140
+        && data.description is string && data.description.size() <= 2000
+        && data.dueDate is string && data.dueDate.size() <= 40
+        && data.status in ['pending', 'submitted', 'graded']
+        && data.submissionImageDataUrl is string && data.submissionImageDataUrl.size() <= 260000
+        && data.studentNote is string && data.studentNote.size() <= 1000
+        && data.assistantFeedback is string && data.assistantFeedback.size() <= 1500
+        && data.gradeText is string && data.gradeText.size() <= 40
+        && isValidId(data.createdByUid)
+        && (data.submittedAt == null || data.submittedAt is timestamp)
+        && (data.gradedAt == null || data.gradedAt is timestamp)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFocusSession(data) {
+      return data.keys().hasAll([
+          'id', 'studentId', 'studentUid', 'parentUid', 'assistantUid',
+          'durationMinutes', 'note', 'completedDate', 'createdByUid',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'studentId', 'studentUid', 'parentUid', 'assistantUid',
+          'durationMinutes', 'note', 'completedDate', 'createdByUid',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.studentId)
+        && isNullableUid(data.studentUid)
+        && isNullableUid(data.parentUid)
+        && isNullableUid(data.assistantUid)
+        && data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 180
+        && data.note is string && data.note.size() <= 300
+        && data.completedDate is string && data.completedDate.size() >= 8 && data.completedDate.size() <= 20
+        && isValidId(data.createdByUid)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll([
+          'id', 'studentId', 'studentUid', 'parentUid', 'assistantUid',
+          'senderUid', 'senderName', 'senderRole', 'text', 'readByUids',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'studentId', 'studentUid', 'parentUid', 'assistantUid',
+          'senderUid', 'senderName', 'senderRole', 'text', 'readByUids',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.studentId)
+        && isNullableUid(data.studentUid)
+        && isNullableUid(data.parentUid)
+        && isNullableUid(data.assistantUid)
+        && isValidId(data.senderUid)
+        && data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 80
+        && data.senderRole in ['student', 'parent', 'assistant']
+        && data.text is string && data.text.size() >= 1 && data.text.size() <= 2000
+        && data.readByUids is list && data.readByUids.size() >= 1 && data.readByUids.size() <= 3
+        && data.readByUids[0] is string && data.readByUids[0].size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSchedule(data) {
+      return data.keys().hasAll([
+          'id', 'studentId', 'studentUid', 'parentUid', 'assistantUid',
+          'title', 'scheduledAt', 'note', 'status', 'createdByUid',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'studentId', 'studentUid', 'parentUid', 'assistantUid',
+          'title', 'scheduledAt', 'note', 'status', 'createdByUid',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.studentId)
+        && isNullableUid(data.studentUid)
+        && isNullableUid(data.parentUid)
+        && isNullableUid(data.assistantUid)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 140
+        && data.scheduledAt is string && data.scheduledAt.size() >= 1 && data.scheduledAt.size() <= 40
+        && data.note is string && data.note.size() <= 1000
+        && data.status in ['requested', 'confirmed', 'completed', 'cancelled']
+        && isValidId(data.createdByUid)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFeedbackTicket(data) {
+      return data.keys().hasAll([
+          'id', 'studentId', 'studentUid', 'parentUid', 'assistantUid',
+          'category', 'subject', 'content', 'status', 'response',
+          'respondedByUid', 'createdByUid', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'studentId', 'studentUid', 'parentUid', 'assistantUid',
+          'category', 'subject', 'content', 'status', 'response',
+          'respondedByUid', 'createdByUid', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.studentId)
+        && isNullableUid(data.studentUid)
+        && isNullableUid(data.parentUid)
+        && isNullableUid(data.assistantUid)
+        && data.category in ['feedback', 'support', 'management']
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 140
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 2000
+        && data.status in ['open', 'resolved']
+        && data.response is string && data.response.size() <= 2000
+        && isNullableUid(data.respondedByUid)
+        && isValidId(data.createdByUid)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // 1. users_public
+    match /users_public/{userId} {
+      allow get: if isVerified() && isValidId(userId);
+      allow list: if false;
+      allow create: if isVerified()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserPublic(incoming())
+        && incoming().uid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserPublic(incoming())
+        && incoming().uid == existing().uid
+        && incoming().role == existing().role
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'isOnline', 'updatedAt']);
+      allow delete: if isVerified() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // 2. users_private
+    match /users_private/{userId} {
+      allow get: if isVerified() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if false;
+      allow create: if isVerified()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserPrivate(incoming())
+        && incoming().uid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserPrivate(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'phone', 'updatedAt']);
+      allow delete: if isVerified() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // 3. students
+    match /students/{studentId} {
+      allow get: if isVerified() && isValidId(studentId) && hasStudentRoleData(existing());
+      allow list: if isVerified() && hasStudentRoleData(existing());
+      allow create: if isVerified()
+        && isValidId(studentId)
+        && isValidStudent(incoming())
+        && incoming().id == studentId
+        && incoming().createdByUid == request.auth.uid
+        && incoming().totalFocusMinutes == 0
+        && incoming().streakDays == 0
+        && incoming().lastFocusDate == ''
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          (getUserRole() == 'student' && incoming().studentUid == request.auth.uid && incoming().parentUid == null && incoming().assistantUid == null) ||
+          (getUserRole() == 'parent' && incoming().parentUid == request.auth.uid && incoming().studentUid == null && incoming().assistantUid == null) ||
+          (getUserRole() == 'assistant' && incoming().assistantUid == request.auth.uid && incoming().studentUid == null && incoming().parentUid == null)
+        );
+      allow update: if isVerified()
+        && isValidId(studentId)
+        && isValidStudent(incoming())
+        && incoming().id == existing().id
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().inviteCode == existing().inviteCode
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Claim empty student role slot via invite
+          (existing().studentUid == null && incoming().studentUid == request.auth.uid && getUserRole() == 'student' && incoming().diff(existing()).affectedKeys().hasOnly(['studentUid', 'updatedAt'])) ||
+          // Action 2: Claim empty parent role slot via invite
+          (existing().parentUid == null && incoming().parentUid == request.auth.uid && getUserRole() == 'parent' && incoming().diff(existing()).affectedKeys().hasOnly(['parentUid', 'updatedAt'])) ||
+          // Action 3: Claim empty assistant role slot via invite
+          (existing().assistantUid == null && incoming().assistantUid == request.auth.uid && getUserRole() == 'assistant' && incoming().diff(existing()).affectedKeys().hasOnly(['assistantUid', 'updatedAt'])) ||
+          // Action 4: Member updates student name/grade
+          (hasStudentRoleData(existing()) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'grade', 'updatedAt'])) ||
+          // Action 5: Student updates focus stats
+          (existing().studentUid == request.auth.uid && incoming().totalFocusMinutes >= existing().totalFocusMinutes && incoming().diff(existing()).affectedKeys().hasOnly(['totalFocusMinutes', 'streakDays', 'lastFocusDate', 'updatedAt'])) ||
+          // Action 6: Leave student role slot on account deletion
+          (existing().studentUid == request.auth.uid && incoming().studentUid == null && incoming().diff(existing()).affectedKeys().hasOnly(['studentUid', 'updatedAt'])) ||
+          (existing().parentUid == request.auth.uid && incoming().parentUid == null && incoming().diff(existing()).affectedKeys().hasOnly(['parentUid', 'updatedAt'])) ||
+          (existing().assistantUid == request.auth.uid && incoming().assistantUid == null && incoming().diff(existing()).affectedKeys().hasOnly(['assistantUid', 'updatedAt']))
+        );
+      allow delete: if isVerified() && isValidId(studentId) && hasStudentRoleData(existing()) && (
+        (existing().studentUid == request.auth.uid && existing().parentUid == null && existing().assistantUid == null) ||
+        (existing().parentUid == request.auth.uid && existing().studentUid == null && existing().assistantUid == null) ||
+        (existing().assistantUid == request.auth.uid && existing().studentUid == null && existing().parentUid == null)
+      );
+    }
+
+    // 4. student_invites
+    match /student_invites/{inviteCode} {
+      allow get: if isVerified() && isValidInviteCode(inviteCode);
+      allow list: if false;
+      allow create: if isVerified()
+        && isValidInviteCode(inviteCode)
+        && isValidStudentInvite(incoming())
+        && incoming().code == inviteCode
+        && incoming().createdByUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && existsAfter(/databases/$(database)/documents/students/$(incoming().studentId));
+      allow update: if false;
+      allow delete: if isVerified() && isValidInviteCode(inviteCode) && (
+        existing().createdByUid == request.auth.uid || isMemberOfStudent(existing().studentId)
+      );
+    }
+
+    // 5. assignments
+    match /assignments/{assignmentId} {
+      allow get: if isVerified() && isValidId(assignmentId) && hasStudentRoleData(existing());
+      allow list: if isVerified() && hasStudentRoleData(existing());
+      allow create: if isVerified()
+        && isValidId(assignmentId)
+        && isValidAssignment(incoming())
+        && incoming().id == assignmentId
+        && incoming().createdByUid == request.auth.uid
+        && incoming().status == 'pending'
+        && incoming().submissionImageDataUrl == ''
+        && incoming().studentNote == ''
+        && incoming().assistantFeedback == ''
+        && incoming().gradeText == ''
+        && incoming().submittedAt == null
+        && incoming().gradedAt == null
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          isAssistantOfStudent(incoming().studentId) ||
+          (isStudentOfStudent(incoming().studentId) && incoming().type == 'extra')
+        )
+        && matchesStudentUids(incoming(), incoming().studentId);
+      allow update: if isVerified()
+        && isValidId(assignmentId)
+        && isValidAssignment(incoming())
+        && incoming().id == existing().id
+        && incoming().studentId == existing().studentId
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Sync member UIDs when someone joins or leaves
+          (isMemberOfStudent(existing().studentId) && matchesStudentUids(incoming(), existing().studentId) && incoming().diff(existing()).affectedKeys().hasOnly(['studentUid', 'parentUid', 'assistantUid', 'updatedAt'])) ||
+          isRemovingSelfUid() ||
+          // Terminal lock: graded cannot be edited
+          (existing().status != 'graded' && (
+            // Assistant edits pending assignment details
+            (isAssistantOfStudent(existing().studentId) && existing().status == 'pending' && incoming().status == 'pending' && incoming().diff(existing()).affectedKeys().hasOnly(['type', 'subject', 'title', 'description', 'dueDate', 'updatedAt'])) ||
+            // Student submits work (pending -> submitted or re-submits before graded)
+            (isStudentOfStudent(existing().studentId) && incoming().status == 'submitted' && incoming().submittedAt == request.time && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'submissionImageDataUrl', 'studentNote', 'submittedAt', 'updatedAt'])) ||
+            // Assistant grades work (pending/submitted -> graded)
+            (isAssistantOfStudent(existing().studentId) && incoming().status == 'graded' && incoming().gradedAt == request.time && incoming().gradeText.size() >= 1 && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'assistantFeedback', 'gradeText', 'gradedAt', 'updatedAt']))
+          ))
+        );
+      allow delete: if isVerified() && isValidId(assignmentId) && (
+        (isAssistantOfStudent(existing().studentId) && existing().status != 'graded') ||
+        (isStudentOfStudent(existing().studentId) && existing().createdByUid == request.auth.uid && existing().status == 'pending') ||
+        isSoleMemberOfStudent(existing().studentId)
+      );
+    }
+
+    // 6. focus_sessions
+    match /focus_sessions/{sessionId} {
+      allow get: if isVerified() && isValidId(sessionId) && hasStudentRoleData(existing());
+      allow list: if isVerified() && hasStudentRoleData(existing());
+      allow create: if isVerified()
+        && isValidId(sessionId)
+        && isValidFocusSession(incoming())
+        && incoming().id == sessionId
+        && incoming().createdByUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isStudentOfStudent(incoming().studentId)
+        && matchesStudentUids(incoming(), incoming().studentId);
+      allow update: if isVerified()
+        && isValidId(sessionId)
+        && isValidFocusSession(incoming())
+        && incoming().id == existing().id
+        && incoming().studentId == existing().studentId
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isMemberOfStudent(existing().studentId)
+        && (
+          (matchesStudentUids(incoming(), existing().studentId) && incoming().diff(existing()).affectedKeys().hasOnly(['studentUid', 'parentUid', 'assistantUid', 'updatedAt'])) ||
+          isRemovingSelfUid()
+        );
+      allow delete: if isVerified() && isValidId(sessionId) && isSoleMemberOfStudent(existing().studentId);
+    }
+
+    // 7. messages
+    match /messages/{messageId} {
+      allow get: if isVerified() && isValidId(messageId) && hasStudentRoleData(existing());
+      allow list: if isVerified() && hasStudentRoleData(existing());
+      allow create: if isVerified()
+        && isValidId(messageId)
+        && isValidMessage(incoming())
+        && incoming().id == messageId
+        && incoming().senderUid == request.auth.uid
+        && incoming().senderRole == getUserRole()
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isMemberOfStudent(incoming().studentId)
+        && matchesStudentUids(incoming(), incoming().studentId);
+      allow update: if isVerified()
+        && isValidId(messageId)
+        && isValidMessage(incoming())
+        && incoming().id == existing().id
+        && incoming().studentId == existing().studentId
+        && incoming().senderUid == existing().senderUid
+        && incoming().senderRole == existing().senderRole
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isMemberOfStudent(existing().studentId)
+        && (
+          (matchesStudentUids(incoming(), existing().studentId) && incoming().diff(existing()).affectedKeys().hasOnly(['studentUid', 'parentUid', 'assistantUid', 'updatedAt'])) ||
+          isRemovingSelfUid() ||
+          (incoming().diff(existing()).affectedKeys().hasOnly(['readByUids', 'updatedAt']))
+        );
+      allow delete: if isVerified() && isValidId(messageId) && isSoleMemberOfStudent(existing().studentId);
+    }
+
+    // 8. schedules
+    match /schedules/{scheduleId} {
+      allow get: if isVerified() && isValidId(scheduleId) && hasStudentRoleData(existing());
+      allow list: if isVerified() && hasStudentRoleData(existing());
+      allow create: if isVerified()
+        && isValidId(scheduleId)
+        && isValidSchedule(incoming())
+        && incoming().id == scheduleId
+        && incoming().createdByUid == request.auth.uid
+        && incoming().status == 'requested'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isParentOfStudent(incoming().studentId) || isAssistantOfStudent(incoming().studentId))
+        && matchesStudentUids(incoming(), incoming().studentId);
+      allow update: if isVerified()
+        && isValidId(scheduleId)
+        && isValidSchedule(incoming())
+        && incoming().id == existing().id
+        && incoming().studentId == existing().studentId
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (isMemberOfStudent(existing().studentId) && matchesStudentUids(incoming(), existing().studentId) && incoming().diff(existing()).affectedKeys().hasOnly(['studentUid', 'parentUid', 'assistantUid', 'updatedAt'])) ||
+          isRemovingSelfUid() ||
+          // Terminal lock: completed/cancelled cannot change status
+          (existing().status in ['requested', 'confirmed'] && (
+            (isAssistantOfStudent(existing().studentId) && incoming().status in ['confirmed', 'completed', 'cancelled'] && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+            (isParentOfStudent(existing().studentId) && incoming().status == 'cancelled' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
+          ))
+        );
+      allow delete: if isVerified() && isValidId(scheduleId) && isSoleMemberOfStudent(existing().studentId);
+    }
+
+    // 9. feedback_tickets
+    match /feedback_tickets/{ticketId} {
+      allow get: if isVerified() && isValidId(ticketId) && hasStudentRoleData(existing());
+      allow list: if isVerified() && hasStudentRoleData(existing());
+      allow create: if isVerified()
+        && isValidId(ticketId)
+        && isValidFeedbackTicket(incoming())
+        && incoming().id == ticketId
+        && incoming().createdByUid == request.auth.uid
+        && incoming().status == 'open'
+        && incoming().response == ''
+        && incoming().respondedByUid == null
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isParentOfStudent(incoming().studentId)
+        && matchesStudentUids(incoming(), incoming().studentId);
+      allow update: if isVerified()
+        && isValidId(ticketId)
+        && isValidFeedbackTicket(incoming())
+        && incoming().id == existing().id
+        && incoming().studentId == existing().studentId
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (isMemberOfStudent(existing().studentId) && matchesStudentUids(incoming(), existing().studentId) && incoming().diff(existing()).affectedKeys().hasOnly(['studentUid', 'parentUid', 'assistantUid', 'updatedAt'])) ||
+          isRemovingSelfUid() ||
+          (isAssistantOfStudent(existing().studentId) && existing().status == 'open' && incoming().status == 'resolved' && incoming().respondedByUid == request.auth.uid && incoming().response.size() >= 1 && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'response', 'respondedByUid', 'updatedAt']))
+        );
+      allow delete: if isVerified() && isValidId(ticketId) && isSoleMemberOfStudent(existing().studentId);
+    }
+  }
+}
